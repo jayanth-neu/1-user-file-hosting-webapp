@@ -1,0 +1,19 @@
+[Unit]
+Description=CSYE6225 Fall2022 webservice as a startup service
+After=syslog.target network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/workspace
+
+ExecStart=/bin/bash -c 'java -jar webservice.jar'
+
+Type=simple
+SuccessExitStatus=143
+ExecStop=/bin/kill -15 $MAINPID
+TimeoutStopSec=10
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

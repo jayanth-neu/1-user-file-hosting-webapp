@@ -1,0 +1,126 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+name: create-ami
+
+env:
+  ARTIFACT_NAME: userFiles-webapp-${{github.sha}}.zip
+  CODEDEPLOY_APPLICATION_NAME: userFiles-webapp
+  CODEDEPLOY_APPLICATION_GROUP_NAME: userFiles-webapp-deployment
+  AWS_REGION: us-east-1
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches: [ main ]
+  #pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: createAMI
+
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+      - name: Run packer script file
+        run: |
+          pwd
+          mkdir staging && mv target/*.jar ./webservice.jar
+          cp -r ./scripts/* ./
+
+        shell: bash
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_DEMO_USER_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_DEMO_USER_SECRET_ACCESS_KEY }}
+          # aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          # if you have/need it
+          aws-region: ${{env.AWS_REGION}}
+
+      # build artifact
+      - name: Build Artifact
+        uses: hashicorp/packer-github-actions@master
+        with:
+          command: build
+          arguments: -var=GITHUB_REF=${{ github.event.pull_request.number }} -color=false -on-error=abort
+          target: ami.pkr.hcl
+          working_directory: "."
+
+      # update template configuration
+      - name: Update template configuration
+        run: |
+          ASG=$(aws autoscaling describe-auto-scaling-instances --query 'AutoScalingInstances[?AutoScalingGroupName==`myvpcec2-auto-scaling-group`].InstanceId' --output text)
+          if [ "$ASG" != "" ]
+          then
+          echo Autoscaling group exists
+          AMS_ID=$(aws ec2 describe-images --filters Name=name,Values=userFiles_${{ github.event.pull_request.number }} --query 'Images[0].[ImageId]' --output text)
+          aws ec2 create-launch-template-version --launch-template-name "asg_launch_config" --source-version 1 --launch-template-data ImageId=$AMS_ID
+          else
+          echo Autoscaling does not exist
+          fi
+
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DEMO_USER_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DEMO_USER_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: 'us-east-1'
+
+      # update autoscaling group
+      - name: update autoscaling group
+        run: |
+          ASG=$(aws autoscaling describe-auto-scaling-instances --query 'AutoScalingInstances[?AutoScalingGroupName==`myvpcec2-auto-scaling-group`].InstanceId' --output text)
+          if [ "$ASG" != "" ]
+          then
+          echo Autoscaling group exists
+          aws autoscaling update-auto-scaling-group --auto-scaling-group-name myvpcec2-auto-scaling-group --launch-template '{"LaunchTemplateName": "asg_launch_config", "Version": "$Latest"}'
+          else
+          echo Autoscaling does not exist
+          fi
+
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DEMO_USER_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DEMO_USER_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: 'us-east-1'
+
+      # update autoscaling group
+      - name: refresh autoscaling instances
+        run: |
+          ASG=$(aws autoscaling describe-auto-scaling-instances --query 'AutoScalingInstances[?AutoScalingGroupName==`myvpcec2-auto-scaling-group`].InstanceId' --output text)
+          if [ "$ASG" != "" ]
+          then
+          echo Autoscaling group exists
+          REFRESH_INSTANCE_ID=$(aws autoscaling start-instance-refresh --auto-scaling-group-name myvpcec2-auto-scaling-group --output text) 
+          echo $REFRESH_INSTANCE_ID
+          STATUS=$(aws autoscaling describe-instance-refreshes --auto-scaling-group-name myvpcec2-auto-scaling-group --instance-refresh-ids $REFRESH_INSTANCE_ID --query 'InstanceRefreshes[0].Status' --output text)
+          count=1
+          while [ "$STATUS" != "Successful" ]
+            do
+            echo "refresh status - $STATUS"
+            sleep 60
+            count=`expr $count + 1`
+            if [ $count -eq 20 ]
+            then
+              echo "unable to update instance"
+              exit 1
+            fi
+            STATUS=$(aws autoscaling describe-instance-refreshes --auto-scaling-group-name myvpcec2-auto-scaling-group --instance-refresh-ids $REFRESH_INSTANCE_ID --query 'InstanceRefreshes[0].Status' --output text)
+            done
+            echo $STATUS
+            else
+             echo Autoscaling does not exist
+            fi
+        env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DEMO_USER_ACCESS_KEY }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DEMO_USER_SECRET_ACCESS_KEY }}
+            AWS_DEFAULT_REGION: 'us-east-1'
+

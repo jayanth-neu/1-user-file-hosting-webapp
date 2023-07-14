@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!--    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>-->
+    <property name="LOGS" value="./logs" />
+    <timestamp key="timestamp" datePattern="yyyyMMdd"/>
+
+    <appender name="Console"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <!--            [%file:%line] [%r] %-25.25logger{25}-->
+            <Pattern>
+                <!--                %black(%d{ISO8601}) %highlight(%-5level) [%blue(%5t)] %yellow(%C{0}:%line)  : %msg%n%throwable-->
+                <!--                %d{yyyy-MM-dd} | %d{HH:mm:ss.SSS}|%d{ISO8601} | %-20.20thread | %5p | %-25.25logger{25} |%m%n-->
+                %black(%d{ISO8601}) | %highlight(%-5level) | %cyan(%-15.15thread) | %magenta(%-25.25C{0}:%-4line) | %msg%n%throwable
+            </Pattern>
+        </layout>
+    </appender>
+    <appender name="RegularFile" class="ch.qos.logback.core.FileAppender">
+        <file>${LOGS}/logger-%{timestamp}.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{35} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <appender name="RollingFile"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOGS}/logger.log</file>
+        <encoder>
+            <Pattern>%d %p %C{1.} [%t] %m%n</Pattern>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- rollover daily and when the file reaches 10 MegaBytes -->
+            <fileNamePattern>${LOGS}/archived/spring-boot-logger-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+
+            <maxFileSize>20KB</maxFileSize>
+            <!-- total size of all archive files, if total size > 20KB,
+            it will delete old archived file -->
+            <totalSizeCap>100KB</totalSizeCap>
+            <maxHistory>60</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <!-- LOG everything at INFO level -->
+    <root level="info">
+        <appender-ref ref="RollingFile" />
+        <appender-ref ref="Console" />
+        <appender-ref ref="RegularFile"/>
+    </root>
+
+</configuration>
