@@ -35,21 +35,21 @@ A user file hosting application built using Java Springboot and AWS services. In
 
 <br/>
 
-![image](https://github.com/SaiChandGhanta/1-user-file-hosting-webapp/blob/main/user%20files%20hosting.png)
+![image](https://github.com/jayanth-neu/1-user-file-hosting-webapp/blob/main/user%20files%20hosting.png)
 <br/>
 
 # CICD Workflow
 
 <br/>
 
-![image](https://github.com/SaiChandGhanta/1-user-file-hosting-webapp/blob/main/CICD.png)
+![image](https://github.com/jayanth-neu/1-user-file-hosting-webapp/blob/main/CICD.png)
 <br/>
 
 # Infrastucture and Serverless repos
 
-[Click here for Infrastructure repo](https://github.com/SaiChandGhanta/2-user-file-hosting-infrastructure)
+[Click here for Infrastructure repo](https://github.com/jayanth-neu/2-user-file-hosting-infrastructure)
 
-[Click here for Serverless repo](https://github.com/SaiChandGhanta/3-user-file-hosting-serverless)
+[Click here for Serverless repo](https://github.com/jayanth-neu/3-user-file-hosting-serverless)
 
 
 
